@@ -1,0 +1,71 @@
+use bevy::prelude::*;
+use std::f32::consts::PI;
+
+pub fn test() {
+    info!("#########-TESTING-#########");
+}
+
+/// set up a simple 3D scene
+pub fn scene_setup(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    info!("Hello scene!");
+    // plane
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(shape::Plane::from_size(5.0).into()),
+        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        ..default()
+    });
+    // cube
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+        transform: Transform::from_xyz(0.0, 0.5, 0.0),
+        ..default()
+    });
+    // light
+    commands.spawn(PointLightBundle {
+        point_light: PointLight {
+            intensity: 1500.0,
+            shadows_enabled: true,
+            ..default()
+        },
+        transform: Transform::from_xyz(4.0, 8.0, 4.0),
+        ..default()
+    });
+}
+
+pub fn gizmos(mut gizmos: Gizmos, time: Res<Time>) {
+    gizmos.cuboid(
+        Transform::from_translation(Vec3::Y * 0.5).with_scale(Vec3::splat(1.)),
+        Color::BLACK,
+    );
+    gizmos.rect(
+        Vec3::new(time.elapsed_seconds().cos() * 2.5, 1., 0.),
+        Quat::from_rotation_y(PI / 2.),
+        Vec2::splat(2.),
+        Color::GREEN,
+    );
+
+    gizmos.sphere(Vec3::new(1., 0.5, 0.), Quat::IDENTITY, 0.5, Color::RED);
+
+    for y in [0., 0.5, 1.] {
+        gizmos.ray(
+            Vec3::new(1., y, 0.),
+            Vec3::new(-3., (time.elapsed_seconds() * 3.).sin(), 0.),
+            Color::BLUE,
+        );
+    }
+
+    // Circles have 32 line-segments by default.
+    gizmos.circle(Vec3::ZERO, Vec3::Y, 3., Color::BLACK);
+    // You may want to increase this for larger circles or spheres.
+    gizmos
+        .circle(Vec3::ZERO, Vec3::Y, 3.1, Color::NAVY)
+        .segments(64);
+    gizmos
+        .sphere(Vec3::ZERO, Quat::IDENTITY, 3.2, Color::BLACK)
+        .circle_segments(64);
+}

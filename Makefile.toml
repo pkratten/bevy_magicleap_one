@@ -1,0 +1,27 @@
+[tasks.build]
+command = "cargo"
+args = ["build", "--target", "aarch64-linux-android"] #, "--release"]
+
+
+[tasks.run]
+command = "wrapper/run.bat"
+args = ["${@}"]                   # Maybe add MLCERT as an argument later.
+dependencies = ["clean", "build"]
+
+[tasks.clean]
+clear = true
+script_runner = "@duckscript"
+script = """
+rm -r wrapper/.out
+"""
+
+
+[tasks.run_win]
+command = "cargo"
+args = [
+    "run",
+    "--bin",
+    "bevy_magicleap_one",
+    "--target",
+    "i686-pc-windows-msvc",
+]
