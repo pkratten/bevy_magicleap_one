@@ -40,7 +40,7 @@ tracing = "0.1.37"
 tracing-core = "0.1.30"
 
 wgpu = "0.16.0"
-wgpu-hal = { version = "0.16.0", features = ["vulkan"] }
+wgpu-hal = { version = "0.16.0", features = ["gles"] }
 ash = "0.37.3"
 
 log = "0.4.19"
@@ -51,7 +51,7 @@ env_logger = "0.10.0"
 
 
 [target.'cfg(target_os = "android")'.dependencies]
-magicleap_one_lumin_sdk_sys = { path = "C:/Users/Peter/Desktop/magicleap_one_lumin_sdk_sys" } #, git = "https://github.com/pkratten/magicleap-one-lumin-sdk-sys" }
+magicleap_one_lumin_sdk_sys = { git = "https://github.com/pkratten/magicleap-one-lumin-sdk-sys" }
 
 
 [target.'cfg(target_os = "windows")'.dependencies]

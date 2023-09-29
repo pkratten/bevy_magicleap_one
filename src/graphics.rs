@@ -8,6 +8,7 @@ use bevy::utils::HashMap;
 use bevy::{prelude::*, render::renderer::RenderDevice};
 use magicleap_one_lumin_sdk_sys::magicleap_c_api;
 use std::mem;
+use std::num::NonZeroU32;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
@@ -213,54 +214,26 @@ pub fn create_magicleap_one_graphics_client(app: &mut App) {
     let mut graphics_client_handle = magicleap_c_api::MLHandle::default();
 
     unsafe {
-        let (instance, physical_device, device) = render_device
+        let context = render_device
             .wgpu_device()
-            .as_hal::<wgpu_hal::vulkan::Api, _, _>(
-                |hal_device: Option<&wgpu_hal::vulkan::Device>| {
-                    if let Some(hal_device) = hal_device {
-                        (
-                            hal_device.shared_instance().raw_instance().handle(),
-                            hal_device.raw_physical_device(),
-                            hal_device.raw_device().handle(),
-                        )
-                    } else {
-                        panic!("Couldn't get wgpu_hal::vulkan::Device");
-                    }
-                },
-            );
+            .as_hal::<wgpu_hal::gles::Api, _, _>(|hal_device: Option<&wgpu_hal::gles::Device>| {
+                if let Some(hal_device) = hal_device {
+                    hal_device.context().raw_context()
+                } else {
+                    panic!("Couldn't get wgpu_hal::vulkan::Device");
+                }
+            });
 
-        info!(
-            "{:?}",
-            (&graphics_options, &instance, &physical_device, &device,)
-        );
+        info!("{:?}", &context);
 
-        info!(
-            "GraphicsClientParams before: {:?}",
-            (instance.as_raw(), physical_device.as_raw(), device.as_raw())
-        );
-
-        info!(
-            "GraphicsClientParams after: {:?}",
-            (
-                mem::transmute::<_, magicleap_c_api::VkInstance>(instance.as_raw()),
-                mem::transmute::<_, magicleap_c_api::VkPhysicalDevice>(physical_device.as_raw()),
-                mem::transmute::<_, magicleap_c_api::VkDevice>(device.as_raw())
-            )
-        );
-
-        if let Err(result) = magicleap_c_api::MLGraphicsCreateClientVk(
+        if let Err(result) = magicleap_c_api::MLGraphicsCreateClientGL(
             &graphics_options,
-            // instance.as_raw() as VkInstance,
-            // physical_device.as_raw() as VkPhysicalDevice,
-            // device.as_raw() as VkDevice,
-            mem::transmute(instance.as_raw()),
-            mem::transmute(physical_device.as_raw()),
-            mem::transmute(device.as_raw()),
+            context as u64,
             &mut graphics_client_handle,
         )
         .ok()
         {
-            panic!("Creating Vulkan client failed! {}", String::from(result));
+            panic!("Creating GL client failed! {}", String::from(result));
         }
     }
 
@@ -279,119 +252,6 @@ pub fn setup_magic_leap_one_render_targets(app: &App) {
     unsafe { magicleap_c_api::MLGraphicsGetRenderTargets(**graphics_client, &mut render_targets) };
 
     info!("Render target: {:?}#######################", render_targets);
-
-    // for (i, buffer) in render_targets.buffers.into_iter().enumerate() {
-    //     //Get supplied Texture.
-    //     let image = ash::vk::Image::from_raw(buffer.color.id);
-
-    //     unsafe {
-    //         render_device
-    //             .wgpu_device()
-    //             .as_hal::<wgpu_hal::vulkan::Api, _, _>(
-    //                 |hal_device: Option<&wgpu_hal::vulkan::Device>| {
-    //                     if let Some(hal_device) = hal_device {
-    //                         transition_image_layout(
-    //                             hal_device.raw_device(),
-    //                             hal_device.raw_queue(),
-    //                             image,
-    //                         );
-    //                     } else {
-    //                         panic!("Couldn't get wgpu_hal::vulkan::Device");
-    //                     }
-    //                 },
-    //             );
-    //     }
-    // }
-}
-
-fn transition_image_layout(device: &ash::Device, queue: ash::vk::Queue, image: vk::Image) {
-    let subresource_range = vk::ImageSubresourceRange::builder()
-        .aspect_mask(vk::ImageAspectFlags::COLOR)
-        .base_mip_level(0)
-        .level_count(vk::REMAINING_MIP_LEVELS)
-        .base_array_layer(0)
-        .layer_count(vk::REMAINING_ARRAY_LAYERS)
-        .build();
-
-    let memory_barrier = vk::ImageMemoryBarrier::builder()
-        .old_layout(vk::ImageLayout::UNDEFINED)
-        .new_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
-        .image(image)
-        .dst_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE)
-        .src_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_READ)
-        .subresource_range(subresource_range)
-        .build();
-
-    let command_pool = unsafe {
-        device
-            .create_command_pool(
-                &vk::CommandPoolCreateInfo::builder()
-                    .queue_family_index(0) //queue_family_index)
-                    .flags(
-                        vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER
-                            | vk::CommandPoolCreateFlags::TRANSIENT,
-                    ),
-                None,
-            )
-            .expect("Unable to create command pool")
-    };
-
-    let alloc_info = vk::CommandBufferAllocateInfo::builder()
-        .command_buffer_count(1)
-        .level(vk::CommandBufferLevel::PRIMARY)
-        .command_pool(command_pool);
-
-    let command_buffer = unsafe {
-        device
-            .allocate_command_buffers(&alloc_info)
-            .map(|mut b| b.pop().unwrap())
-            .expect("Unable to allocate command buffer")
-    };
-
-    let begin_info =
-        vk::CommandBufferBeginInfo::builder().flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
-
-    unsafe {
-        device
-            .begin_command_buffer(command_buffer, &begin_info)
-            .expect("Unable to begin command buffer")
-    };
-
-    unsafe {
-        device.cmd_pipeline_barrier(
-            command_buffer,
-            PipelineStageFlags::TOP_OF_PIPE,
-            PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-            vk::DependencyFlags::empty(),
-            &[],
-            &[],
-            &[memory_barrier],
-        )
-    };
-
-    unsafe {
-        device
-            .end_command_buffer(command_buffer)
-            .expect("Unable to end command buffer");
-    }
-
-    info!("Image should have been transitioned!! ############################################################");
-
-    // let command_buffers = &[command_buffer];
-
-    // let submit_info = vk::SubmitInfo::builder()
-    //     .command_buffers(command_buffers)
-    //     .build();
-
-    // let submit_info = &[submit_info];
-
-    // unsafe {
-    //     device
-    //         .queue_submit(queue, submit_info, vk::Fence::null())
-    //         .expect("Unable to submit to queue");
-    //     device.queue_wait_idle(queue).expect("Unable to wait idle");
-    //     device.free_command_buffers(command_pool, command_buffers)
-    // }
 }
 
 pub fn initialize_magicleap_one_graphics_frame_render_systems(app: &mut App) {
@@ -410,13 +270,6 @@ pub fn initialize_magicleap_one_graphics_frame_render_systems(app: &mut App) {
         bevy::render::Render,
         (end_magicleap_one_frame).after(bevy::render::RenderSet::CleanupFlush), //.before(bevy::render::RenderSet::Cleanup),
     );
-}
-
-fn print_cameras(cameras: Query<&ExtractedCamera>) {
-    info!("Extracted Cameras: #######################################################################################################");
-    for camera in cameras.iter() {
-        info!("Extracted Camera: {:?}", camera);
-    }
 }
 
 #[derive(Component)]
@@ -455,7 +308,6 @@ impl TryFrom<i32> for MagicLeapOneCamera {
 #[derive(Default, Resource)]
 struct MagicLeapOneSwapChain {
     textures: HashMap<u64, Arc<wgpu::Texture>>,
-    manual_texture_views: HashMap<u64, Vec<ManualTextureView>>,
 }
 
 //This needs to be reworked when rendering works to attach to a XrSceleton.
@@ -476,7 +328,6 @@ pub fn setup_magic_leap_one_cameras(
 
     for (i, buffer) in render_targets.buffers.into_iter().enumerate() {
         //Get supplied Texture.
-        let image = ash::vk::Image::from_raw(buffer.color.id);
 
         let size = wgpu::Extent3d {
             width: buffer.color.width,
@@ -484,29 +335,39 @@ pub fn setup_magic_leap_one_cameras(
             depth_or_array_layers: render_targets.num_virtual_cameras,
         };
 
-        let hal_texture = unsafe {
-            <wgpu_hal::api::Vulkan as wgpu_hal::Api>::Device::texture_from_raw(
-                image,
-                &wgpu_hal::TextureDescriptor {
-                    label: Some(format!("ml_color_texture buffer {}", i).as_str()),
-                    size,
-                    mip_level_count: 1,
-                    sample_count: 1,
-                    dimension: wgpu::TextureDimension::D2,
-                    format: wgpu::TextureFormat::bevy_default(),
-                    usage: TextureUses::COLOR_TARGET,
-                    memory_flags: wgpu_hal::MemoryFlags::empty(),
-                    view_formats: Vec::new(),
-                },
-                Some(Box::new(())),
-            )
+        let texture = unsafe {
+            render_device
+                .wgpu_device()
+                .as_hal::<wgpu_hal::gles::Api, _, _>(
+                    |hal_device: Option<&wgpu_hal::gles::Device>| {
+                        if let Some(hal_device) = hal_device {
+                            hal_device.texture_from_raw(
+                                NonZeroU32::new(buffer.color.id as u32).unwrap(),
+                                &wgpu_hal::TextureDescriptor {
+                                    label: Some(format!("ml_color_texture buffer {}", i).as_str()),
+                                    size,
+                                    mip_level_count: 1,
+                                    sample_count: 1,
+                                    dimension: wgpu::TextureDimension::D2,
+                                    format: wgpu::TextureFormat::bevy_default(),
+                                    usage: TextureUses::COLOR_TARGET,
+                                    memory_flags: wgpu_hal::MemoryFlags::empty(),
+                                    view_formats: Vec::new(),
+                                },
+                                Some(Box::new(())),
+                            )
+                        } else {
+                            panic!("Couldn't get wgpu_hal::vulkan::Device");
+                        }
+                    },
+                )
         };
 
         let texture = unsafe {
             render_device
                 .wgpu_device()
-                .create_texture_from_hal::<wgpu_hal::api::Vulkan>(
-                    hal_texture,
+                .create_texture_from_hal::<wgpu_hal::api::Gles>(
+                    texture,
                     &wgpu::TextureDescriptor {
                         label: Some("ml_color_texture"),
                         size,
@@ -519,8 +380,6 @@ pub fn setup_magic_leap_one_cameras(
                     },
                 )
         };
-
-        let texture_views = Vec::<ManualTextureViewHandle>::new();
 
         for j in 0..render_targets.num_virtual_cameras {
             let texture_view = texture.create_view(&wgpu::TextureViewDescriptor {
@@ -559,8 +418,6 @@ pub fn setup_magic_leap_one_cameras(
     commands.insert_resource(swapchain);
 
     for i in 0..render_targets.num_virtual_cameras {
-        let handle = images.add(Image::default());
-
         commands
             .spawn(Camera3dBundle {
                 camera: Camera {
@@ -702,67 +559,17 @@ fn end_magicleap_one_frame(
     if let Some(frame_handles) = frame_handles {
         info!("Ending ML Frame!");
         unsafe {
-            render_device
-                .wgpu_device()
-                .as_hal::<wgpu_hal::vulkan::Api, _, _>(
-                    |wgpu_device: Option<&wgpu_hal::vulkan::Device>| {
-                        if let Some(device) = wgpu_device {
-                            let vk_device = device.raw_device();
+            for handle in frame_handles.clone().semaphore_handles {
+                magicleap_c_api::MLGraphicsSignalSyncObjectGL(**graphics_client, handle);
+            }
 
-                            for handle in frame_handles.clone().semaphore_handles {
-                                let semaphore = ash::vk::Semaphore::from_raw(handle);
-                                info!("{:?}", semaphore);
-
-                                // let allocate_info = ash::vk::CommandBufferAllocateInfo::builder()
-                                //     .command_buffer_count(1)
-                                //     .command_pool() //Don't know how to get this.
-                                //     .level(ash::vk::CommandBufferLevel::PRIMARY)
-                                //     .build();
-
-                                let submit_info = ash::vk::SubmitInfo::builder()
-                                    .signal_semaphores(&[semaphore])
-                                    .command_buffers(&[])
-                                    .wait_dst_stage_mask(&[])
-                                    .wait_semaphores(&[])
-                                    .build();
-
-                                let fence_create_info = ash::vk::FenceCreateInfo {
-                                    s_type: ash::vk::StructureType::FENCE_CREATE_INFO,
-                                    p_next: std::ptr::null(),
-                                    flags: ash::vk::FenceCreateFlags::empty(),
-                                };
-
-                                let fence = vk_device
-                                    .create_fence(&fence_create_info, None)
-                                    .expect("Failed to create fence!");
-
-                                vk_device
-                                    .queue_submit(device.raw_queue(), &[submit_info], fence)
-                                    .expect("Failed to submit queue!");
-
-                                // Wait for the fence
-                                //vk_device
-                                //    .wait_for_fences(&[fence], true, std::u64::MAX)
-                                //    .expect("Failed to wait for fence!");
-
-                                // Remove the fence
-                                vk_device.destroy_fence(fence, None);
-
-                                info!("Semaphore should have been signaled! {:?}", semaphore);
-                            }
-
-                            if let Err(result) = magicleap_c_api::MLGraphicsEndFrame(
-                                **graphics_client,
-                                frame_handles.frame_handle,
-                            )
-                            .ok()
-                            {
-                                error!("Failed to end frame! {:?}", String::from(result));
-                            }
-                            info!("Ended ML frame!");
-                        }
-                    },
-                );
+            if let Err(result) =
+                magicleap_c_api::MLGraphicsEndFrame(**graphics_client, frame_handles.frame_handle)
+                    .ok()
+            {
+                error!("Failed to end frame! {:?}", String::from(result));
+            }
+            info!("Ended ML frame!");
         }
     }
 }

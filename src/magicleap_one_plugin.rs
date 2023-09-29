@@ -38,7 +38,7 @@ pub fn main() {
         DefaultPlugins
             .set(RenderPlugin {
                 wgpu_settings: WgpuSettings {
-                    backends: Some(Backends::VULKAN),
+                    backends: Some(Backends::GL),
                     // power_preference: wgpu::PowerPreference::LowPower,
                     priority: bevy::render::settings::WgpuSettingsPriority::Functionality,
                     limits: Limits::downlevel_defaults(),
@@ -88,7 +88,7 @@ impl Plugin for MagicLeapOnePlugin {
     fn finish(&self, app: &mut App) {
         info!("Finish Bevy Magic Leap One Plugin!");
         graphics::create_magicleap_one_graphics_client(app);
-        graphics::setup_magic_leap_one_render_targets(app);
+        //graphics::setup_magic_leap_one_render_targets(app);
         graphics::initialize_magicleap_one_graphics_frame_render_systems(app);
     }
 
