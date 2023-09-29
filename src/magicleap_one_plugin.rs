@@ -14,6 +14,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 use std::time::Instant;
 use wgpu::Backends;
+use wgpu::Features;
 use wgpu::Limits;
 
 use crate::callbacks;
@@ -43,6 +44,9 @@ pub fn main() {
                     priority: bevy::render::settings::WgpuSettingsPriority::Functionality,
                     limits: Limits::downlevel_defaults(),
                     constrained_limits: Some(Limits::downlevel_defaults()),
+                    //features: Features::default() |=
+                    features: bevy::render::settings::WgpuFeatures::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES |=
+                        bevy::render::settings::WgpuFeatures::POLYGON_MODE_LINE,
                     ..default()
                 },
             })
