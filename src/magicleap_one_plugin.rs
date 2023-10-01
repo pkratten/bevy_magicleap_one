@@ -43,10 +43,8 @@ pub fn main() {
                     // power_preference: wgpu::PowerPreference::LowPower,
                     priority: bevy::render::settings::WgpuSettingsPriority::Functionality,
                     limits: Limits::downlevel_defaults(),
-                    constrained_limits: Some(Limits::downlevel_defaults()),
+                    constrained_limits: Some(Limits::downlevel_webgl2_defaults()),
                     //features: Features::default() |=
-                    features: bevy::render::settings::WgpuFeatures::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES |=
-                        bevy::render::settings::WgpuFeatures::POLYGON_MODE_LINE,
                     ..default()
                 },
             })
@@ -72,7 +70,7 @@ pub fn main() {
         ///////////////////////////////////////////////////////////////////////////////////////////////////////
         // Disable below System and the scene renders gizmos!
         ///////////////////////////////////////////////////////////////////////////////////////////////////////
-        //.add_systems(Startup, scene_setup)
+        .add_systems(Startup, scene_setup)
         .insert_resource(ClearColor(Color::GOLD));
 
     app.run();

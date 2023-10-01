@@ -494,7 +494,7 @@ pub fn setup_magic_leap_one_cameras(
                     sample_count: 1,
                     dimension: wgpu::TextureDimension::D2,
                     format: wgpu::TextureFormat::bevy_default(),
-                    usage: TextureUses::COLOR_TARGET,
+                    usage: TextureUses::COLOR_TARGET | wgpu_hal::TextureUses::COPY_DST,
                     memory_flags: wgpu_hal::MemoryFlags::empty(),
                     view_formats: Vec::new(),
                 },
@@ -513,7 +513,8 @@ pub fn setup_magic_leap_one_cameras(
                         sample_count: 1,
                         mip_level_count: 1,
                         format: wgpu::TextureFormat::bevy_default(),
-                        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                        usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                            | wgpu::TextureUsages::COPY_DST,
                         dimension: wgpu::TextureDimension::D2,
                         view_formats: &[],
                     },
