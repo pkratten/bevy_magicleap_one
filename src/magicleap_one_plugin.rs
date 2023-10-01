@@ -71,7 +71,8 @@ pub fn main() {
         // Disable below System and the scene renders gizmos!
         ///////////////////////////////////////////////////////////////////////////////////////////////////////
         .add_systems(Startup, scene_setup)
-        .insert_resource(ClearColor(Color::GOLD));
+        .insert_resource(ClearColor(Color::GOLD))
+        .insert_resource(Msaa::Off);
 
     app.run();
 }
